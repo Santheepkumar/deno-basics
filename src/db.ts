@@ -24,8 +24,7 @@ export type ClickAnalytics = {
   ipAddress: string;
   userAgent: string;
   country?: string;
-}
-
+};
 
 // Read & Write Data with Deno KV
 
@@ -65,13 +64,10 @@ export async function storeShortLink(
 
   const userKey = [userId, shortCode];
 
-  await kv.atomic()
+  const res = await kv.atomic()
     .set(shortLinkKey, data)
     .set(userKey, shortCode)
-    .commit()
-
-
-  const res = await kv.set(shortLinkKey, data);
+    .commit();
 
   return res;
 }
@@ -79,6 +75,13 @@ export async function storeShortLink(
 export async function getShortLink(shortCode: string) {
   const link = await kv.get<ShortLink>(["shortlinks", shortCode]);
   return link.value;
+}
+
+export async function getAllLinks() {
+  const list = kv.list<ShortLink>({ prefix: ["shortlinks"] });
+  const res = await Array.fromAsync(list);
+  const linkValues = res.map((v) => v.value);
+  return linkValues;
 }
 
 export async function storeUser(sessionId: string, userData: GitHubUser) {
@@ -91,13 +94,6 @@ export async function getUser(sessionId: string) {
   const key = ["sessions", sessionId];
   const res = await kv.get<GitHubUser>(key);
   return res.value;
-}
-
-export async function getAllLinks() {
-  const list = kv.list<ShortLink>({ prefix: ["shortlinks"] });
-  const res = await Array.fromAsync(list);
-  const linkValues = res.map((v) => v.value);
-  return linkValues;
 }
 
 export async function getUserLinks(userId: string) {
@@ -115,7 +111,7 @@ export async function getUserLinks(userId: string) {
 
 export function watchShortLink(shortCode: string) {
   const shortLinkKey = ["shortlinks", shortCode];
-  const shortLinkStream = kv.watch([shortLinkKey]).getReader();
+  const shortLinkStream = kv.watch<ShortLink[]>([shortLinkKey]).getReader();
   return shortLinkStream;
 }
 
@@ -152,14 +148,13 @@ export async function incrementClickCount(
     .check(shortLink)
     .set(shortLinkKey, {
       ...shortLinkData,
-      clickCount: shortLinkData?.clickCount + 1,
+      clickCount: newClickCount,
     })
     .set(analyicsKey, analyticsData)
     .commit();
-  if (res.ok) {
-    console.log("Logged click");
-  } else {
-    console.error("Not logged");
+
+  if (!res.ok) {
+    console.error("Error recording click!");
   }
 
   return res;

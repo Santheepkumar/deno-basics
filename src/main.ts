@@ -56,17 +56,6 @@ app.get("/", () => {
   );
 });
 
-// app.post("/links", async (req) => {
-//   const { longUrl } = await req.json();
-
-//   const shortCode = await generateShortCode(longUrl);
-//   await storeShortLink(longUrl, shortCode, "testUser");
-
-//   return new Response("success!", {
-//     status: 201,
-//   });
-// });
-
 app.get("/links/new", (_req) => {
   if (!app.currentUser) return unauthorizedResponse();
 
@@ -90,7 +79,6 @@ app.get("/links/:id", async (_req, _info, params) => {
   });
 });
 
-
 app.get("/links", async () => {
   if (!app.currentUser) return unauthorizedResponse();
 
@@ -103,8 +91,6 @@ app.get("/links", async () => {
     },
   });
 });
-
-
 
 app.post("/links", async (req) => {
   if (!app.currentUser) return unauthorizedResponse();
@@ -130,6 +116,8 @@ app.post("/links", async (req) => {
 });
 
 app.get("/links/:id", async (_req, _info, params) => {
+  if (!app.currentUser) return unauthorizedResponse();
+
   const shortCode = params?.pathname.groups["id"];
   const shortLink = await getShortLink(shortCode!);
 
@@ -142,20 +130,19 @@ app.get("/links/:id", async (_req, _info, params) => {
 });
 
 app.get("/realtime/:id", (_req, _info, params) => {
+  if (!app.currentUser) return unauthorizedResponse();
   const shortCode = params?.pathname.groups["id"];
 
   const stream = watchShortLink(shortCode!);
 
   const body = new ReadableStream({
     async start(controller) {
-      // const initialData = await getShortLink(shortCode);
-      // controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ clickCount: initialData.clickCount })}\n\n`));
-
       while (true) {
         const { done } = await stream.read();
         if (done) {
           return;
         }
+
         const shortLink = await getShortLink(shortCode);
         const clickAnalytics = shortLink.clickCount > 0 &&
           await getClickEvent(shortCode, shortLink.clickCount);
@@ -224,8 +211,7 @@ app.get("/:id", async (req, _info, params) => {
 });
 
 // Static Assets
-app.get("/static/*", (req) => serveDir(req))
-
+app.get("/static/*", (req) => serveDir(req));
 
 export default {
   fetch(req) {
